@@ -1,0 +1,45 @@
+macro LUA_CONTINUE=()->{code:"continue",type:"text"}
+
+KaraokeGame = require game.ReplicatedStorage.Systems.Gui.Views.KaraokeGame
+SEnv = getfenv KaraokeGame.Init
+
+u7 = debug.getupvalue KaraokeGame.Init, 1
+u13 = debug.getupvalue KaraokeGame.Init, 4
+
+JobFeedback = debug.getupvalue KaraokeGame.Start, 1
+HitNoteSignal = debug.getupvalue KaraokeGame.GetNoteScoredSignal, 1
+
+RemoveNote = SEnv.RemoveNote
+
+while true
+    for _, Track in u7.Tracks::GetChildren!
+        Notes = u13[Track]
+
+        $LUA_CONTINUE! unless Notes
+
+        TrackEnd = Track.End
+        Track_AP = TrackEnd.AbsolutePosition
+        Track_AS = TrackEnd.AbsoluteSize
+
+        v24 = v25 = nil
+
+        for i = #Notes, 1, -1
+            Note = Notes[i]
+            Note_AP = Note.AbsolutePosition
+            Diff = math.abs Track_AP.Y - Note_AP.Y
+
+            if not v24 or Diff < v24
+                v25 = Note
+                v24 = Diff
+
+        if v25
+            if v24 <= Track_AS.Y / 2
+                PickedNote = v25.PickedNote
+                Color = PickedNote.ImageColor3
+
+                HitNoteSignal::Fire PickedNote::GetAttribute("NoteType"), Color
+                JobFeedback::DisplayCutQuality "Perfect!", v25.AbsolutePosition + v25.AbsolutePosition / 2, Color
+                RemoveNote Track, v25
+
+
+    task.wait!
