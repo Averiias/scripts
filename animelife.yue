@@ -1,45 +1,203 @@
 macro LUA_CONTINUE=()->{code:"continue",type:"text"}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
 
-KaraokeGame = require game.ReplicatedStorage.Systems.Gui.Views.KaraokeGame
-SEnv = getfenv KaraokeGame.Init
+class Interface
+    init: () =>
+        $LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
+        $LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+        $LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
 
-u7 = debug.getupvalue KaraokeGame.Init, 1
-u13 = debug.getupvalue KaraokeGame.Init, 4
+        @Library = Library
+        @ThemeManager = ThemeManager
+        @SaveManager = SaveManager
 
-JobFeedback = debug.getupvalue KaraokeGame.Start, 1
-HitNoteSignal = debug.getupvalue KaraokeGame.GetNoteScoredSignal, 1
+        @Toggles = @Library.Toggles
+        @Options = @Library.Options
 
-RemoveNote = SEnv.RemoveNote
+        with Window = Library::CreateWindow {Title: "Anime Life", Footer: "Anime Life by Ave"}
+            with Minigames = ::AddTab "Minigames"
+                with Karaoke = ::AddLeftGroupbox "Karaoke"
+                    ::AddToggle "Karaoke_AutoPlay", {
+                        Text: "Auto Play"
+                    }
+                with Hibachi = ::AddLeftGroupbox "Hibachi"
+                    ::AddToggle "Hibachi_AutoPlay", {
+                        Text: "Auto Cut"
+                    }
+                with Fishing = ::AddRightGroupbox "Fishing"
+                    ::AddToggle "Fishing_InstantCatch", {
+                        Text: "Instant Catch"
+                    }
+                    ::AddToggle "Fishing_InstantReel", {
+                        Text: "Instant Reelable"
+                    }
+                with Yakitori = ::AddRightGroupbox "Yakitori"
+                    ::AddToggle "Yakitori_AutoFlip", {
+                        Text: "Auto Flip"
+                    }
+                    ::AddToggle "Yakitori_AutoFinish", {
+                        Text: "Auto Finish"
+                    }
+                -- with PizzaDelivery = ::AddLeftGroupbox "Pizza Delivery"
+                --     ::AddToggle "PizzaDelivery_AutoDeliver", {
+                --         Text: "Auto Delivery"
+                --     }
 
-while true
-    for _, Track in u7.Tracks::GetChildren!
-        Notes = u13[Track]
+class KaraokeMinigame
+    @Game = require game.ReplicatedStorage.Systems.Gui.Views.KaraokeGame
+    @Env = getfenv @Game.Init
 
-        $LUA_CONTINUE! unless Notes
+    @GameUI = debug.getupvalue @Game.Init, 1
+    @Tracks = debug.getupvalue @Game.Init, 4
 
-        TrackEnd = Track.End
-        Track_AP = TrackEnd.AbsolutePosition
-        Track_AS = TrackEnd.AbsoluteSize
+    @Feedback = debug.getupvalue @Game.Start, 1
+    @NoteSignal = debug.getupvalue @Game.GetNoteScoredSignal, 1
 
-        v24 = v25 = nil
+    @RemoveNote = @Env.RemoveNote
 
-        for i = #Notes, 1, -1
-            Note = Notes[i]
-            Note_AP = Note.AbsolutePosition
-            Diff = math.abs Track_AP.Y - Note_AP.Y
+    init: () =>
+        while true
+            if Interface.Toggles.Karaoke_AutoPlay.Value
+                for _, UITrack in @GameUI.Tracks::GetChildren!
+                    Notes = @Tracks[UITrack]
 
-            if not v24 or Diff < v24
-                v25 = Note
-                v24 = Diff
+                    $LUA_CONTINUE! unless Notes
 
-        if v25
-            if v24 <= Track_AS.Y / 2
-                PickedNote = v25.PickedNote
-                Color = PickedNote.ImageColor3
+                    TrackEnd = UITrack.End
+                    TrackPosition = TrackEnd.AbsolutePosition
+                    TrackSize = TrackEnd.AbsoluteSize
 
-                HitNoteSignal::Fire PickedNote::GetAttribute("NoteType"), Color
-                JobFeedback::DisplayCutQuality "Perfect!", v25.AbsolutePosition + v25.AbsolutePosition / 2, Color
-                RemoveNote Track, v25
+                    ClosestNote = ClosestDistance = nil
+
+                    for i = #Notes, 1, -1
+                        Note = Notes[i]
+                        NotePosition = Note.AbsolutePosition
+                        NoteDistance = math.abs TrackPosition.Y - NotePosition.Y
+
+                        if not ClosestDistance or NoteDistance < ClosestDistance
+                            ClosestNote = Note
+                            ClosestDistance = NoteDistance
+                    
+                    if ClosestNote and ClosestDistance <= TrackSize.Y / 2
+                        Note = ClosestNote.PickedNote
+                        NoteColor = Note.ImageColor3
+
+                        @NoteSignal::Fire Note::GetAttribute("NoteType"), NoteColor
+                        @Feedback::DisplayCutQuality "Perfect!", ClosestNote.AbsolutePosition + ClosestNote.AbsolutePosition / 2, NoteColor 
+                        @.RemoveNote UITrack, ClosestNote
+            task.wait!
+
+class HibachiMinigame
+    @HibachiModule = game.ReplicatedStorage.Systems.Modules.Minigames.HibachiNinja
+    @Game = require @HibachiModule
+    @Env = getfenv @Game.Run
+    @ReplicateSlice = @HibachiModule.ReplicateSlice
+
+    @Signal = debug.getupvalue @Game.GetScoredSignal, 1
+    @ToChop = debug.getupvalue @Game.Run, 15
+
+    @MakeChopped = @Env.makeChopped
 
 
-    task.wait!
+    init: () =>
+        while true
+            task.wait!
+
+            $LUA_CONTINUE! unless Interface.Toggles.Hibachi_AutoPlay.Value
+
+            for i, ToChop in @ToChop
+                LastCF = ToChop.LastCFrame
+                $LUA_CONTINUE! unless LastCF
+
+                Model = ToChop.Model
+                Model.PrimaryPart::Destroy!
+
+                game.Debris::AddItem Model, 0.2
+
+                Chopped = @.MakeChopped Model.Name
+                Chopped::PivotTo LastCF
+                Chopped.Parent = workspace
+                game.Debris::AddItem Chopped, 5
+
+                table.remove @ToChop, i
+
+                @ReplicateSlice::FireServer!
+                @Signal::Fire!
+
+class FishingMinigame
+    @Game = require game.ReplicatedStorage.Systems.Gui.Views.FishingMinigame
+    @GameHandler = require game.ReplicatedStorage.Systems.Fishing
+
+    @Env = getfenv @Game.Init
+
+    @Finish = @Env.Finish
+    @RunMinigame = @Env.RunMinigame
+
+
+    init: () =>
+        while true
+            if Interface.Toggles.Fishing_InstantReel.Value
+                debug.setupvalue @GameHandler.DoReel, 1, true
+
+            if Interface.Toggles.Fishing_InstantCatch.Value
+                debug.setupvalue @.RunMinigame, 2, 1000
+            
+            task.wait!
+
+class YakitoriStand
+    @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.Yakitori
+    @Env = getfenv @Game.Run
+
+    @Signal = debug.getupvalue @Game.GetScoredSignal, 1
+
+    @FlipKebab = @Env.flipKebab
+    @CompleteKebab = @Env.completeKebab
+
+    init: () =>
+        while true
+            task.wait!
+            --Yakitori = debug.getupvalue @Game.Run, 10
+            Yakitoris = debug.getupvalue @Game.Run, 13
+
+            $LUA_CONTINUE! unless Yakitoris
+
+            for _, Yakitori in Yakitoris::GetChildren!
+                State = Yakitori::GetAttribute "State"
+                Flipped = Yakitori::GetAttribute "Flipped"
+
+                switch State
+                    when "Cooking"
+                        if Interface.Toggles.Yakitori_AutoFlip.Value
+                            @.FlipKebab Yakitori if not Flipped
+                    when "Done"
+                        if Interface.Toggles.Yakitori_AutoFinish.Value
+                            @Signal::Fire!
+                            @.CompleteKebab Yakitori
+
+
+-- class PizzaDelivery
+--     @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.PizzaDelivery
+--     @Env = getfenv @Game.GetScoredSignal
+
+--     @JobHandler = require game.ReplicatedStorage.Systems.Jobs
+
+--     @Signal = debug.getupvalue @Game.GetScoredSignal, 1
+
+--     @RouteToDelivery = @Env.RouteToDelivery
+
+--     init: () =>
+--         with @Game
+--             Old = .CreateCompletionRegion
+--             .CreateCompletionRegion = (_, a1, a2, a3, a4, a5, a6) ->
+--                 if (@JobHandler::GetCurrentJob game.Players.LocalPlayer) == "PizzaDelivery"
+--                     task.delay 5, a5 if Interface.Toggles.PizzaDelivery_AutoDeliver.Value
+--                 return Old _, a1, a2, a3, a4, a5, a6
+        
+
+
+Interface::init!
+task.spawn KaraokeMinigame::init
+task.spawn HibachiMinigame::init
+task.spawn FishingMinigame::init
+task.spawn YakitoriStand::init
+-- task.spawn PizzaDelivery::init
