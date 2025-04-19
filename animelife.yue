@@ -15,6 +15,15 @@ class Interface
         @Options = @Library.Options
 
         with Window = Library::CreateWindow {Title: "Anime Life", Footer: "Anime Life by Ave"}
+            with Needs = ::AddTab "Needs"
+                with Energy = ::AddLeftGroupbox "Energy"
+                    ::AddToggle "Energy_AutoBuy", {
+                        Text: "Auto buy cold brew"
+                    }
+                    ::AddToggle "Energy_AutoUse", {
+                        Text: "Auto drink cold brew"
+                    }
+                    ::AddLabel "_", {Text: "Cold brews are drank at 25 energy until 100", DoesWrap: true}
             with Minigames = ::AddTab "Minigames"
                 with Karaoke = ::AddLeftGroupbox "Karaoke"
                     ::AddToggle "Karaoke_AutoPlay", {
@@ -38,10 +47,18 @@ class Interface
                     ::AddToggle "Yakitori_AutoFinish", {
                         Text: "Auto Finish"
                     }
-                -- with PizzaDelivery = ::AddLeftGroupbox "Pizza Delivery"
-                --     ::AddToggle "PizzaDelivery_AutoDeliver", {
-                --         Text: "Auto Delivery"
-                --     }
+                with PizzaDelivery = ::AddLeftGroupbox "Pizza Delivery"
+                    ::AddToggle "PizzaDelivery_AutoDeliver", {
+                        Text: "Auto Delivery"
+                    }
+                    ::AddLabel "_", {Text: "Pizzas are delivered and collected every 15 seconds", DoesWrap: true}
+                with Basketball = ::AddLeftGroupbox "Basketball"
+                    ::AddToggle "Basketball_AlwaysPerfect", {
+                        Text: "Always Perfect"
+                    }
+                    ::AddToggle "Basketball_AutoHoop", {
+                        Text: "Auto Hoop"
+                    }
 
 class KaraokeMinigame
     @Game = require game.ReplicatedStorage.Systems.Gui.Views.KaraokeGame
@@ -144,7 +161,7 @@ class FishingMinigame
             
             task.wait!
 
-class YakitoriStand
+class YakitoriStandMinigame
     @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.Yakitori
     @Env = getfenv @Game.Run
 
@@ -175,29 +192,87 @@ class YakitoriStand
                             @.CompleteKebab Yakitori
 
 
--- class PizzaDelivery
---     @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.PizzaDelivery
---     @Env = getfenv @Game.GetScoredSignal
+class PizzaDeliveryMinigame
+    @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.PizzaDelivery
+    @Env = getfenv @Game.GetScoredSignal
 
---     @JobHandler = require game.ReplicatedStorage.Systems.Jobs
+    @BikeHandler = require game.ReplicatedStorage.Systems.Bike
 
---     @Signal = debug.getupvalue @Game.GetScoredSignal, 1
+    @JobHandler = require game.ReplicatedStorage.Systems.Jobs
 
---     @RouteToDelivery = @Env.RouteToDelivery
+    @Signal = debug.getupvalue @Game.GetScoredSignal, 1
 
---     init: () =>
---         with @Game
---             Old = .CreateCompletionRegion
---             .CreateCompletionRegion = (_, a1, a2, a3, a4, a5, a6) ->
---                 if (@JobHandler::GetCurrentJob game.Players.LocalPlayer) == "PizzaDelivery"
---                     task.delay 5, a5 if Interface.Toggles.PizzaDelivery_AutoDeliver.Value
---                 return Old _, a1, a2, a3, a4, a5, a6
+    @RouteToDelivery = @Env.RouteToDelivery
+
+    init: () =>
+        with @Game
+            Old = .CreateCompletionRegion
+            .CreateCompletionRegion = (_, a1, a2, a3, a4, a5, a6) ->
+                if (@JobHandler::GetCurrentJob game.Players.LocalPlayer) == "PizzaDelivery"
+                    task.delay 15, () ->
+                        a5! if Interface.Toggles.PizzaDelivery_AutoDeliver.Value
+
+                return Old _, a1, a2, a3, a4, a5, a6
         
+class BasketballMinigame
+    @Game = require game.ReplicatedStorage.Systems.Modules.Minigames.BasketballGame
+    @GameUI = require game.ReplicatedStorage.Systems.Gui.Views.BasketballGame
+
+    @Env = getfenv @GameUI.Init
+
+    @OnClick = @Env.OnClick -- -> u44
+    
+    @IsWinner = debug.getupvalue @.OnClick, 6
+
+    @Feedback = debug.getupvalue @Game.Run, 2
+    @Presets = debug.getupvalue @Game.HeartbeatRenderIteration, 6
+    @Signal = debug.getupvalue @Game.GetScoredSignal, 1
+
+    @JobHandler = require game.ReplicatedStorage.Systems.Jobs
+
+    @init: () =>
+        OldWinner = @.IsWinner
+        debug.setupvalue @.OnClick, 6, (...) ->
+            return true if Interface.Toggles.Basketball_AlwaysPerfect.Value
+            return OldWinner ...
+
+        while true
+            if (@JobHandler::GetCurrentJob game.Players.LocalPlayer) == "BasketballGame"
+                if Interface.Toggles.Basketball_AutoHoop.Value
+                    @.OnClick!
+
+            task.wait!
+
+class AutoNeeds
+    @Profile = require game.ReplicatedStorage.Systems.Profile
+    @Inventory = require game.ReplicatedStorage.Systems.Inventory
+
+    @BuyItem = game.ReplicatedStorage.Systems.Shop.BuyItem --> RF
+    @ConsumeFood = game.ReplicatedStorage.Systems.Food.ConsumeFood --> RE
+
+    @init: () => 
+        Profile = @Profile::GetProfile game.Players.LocalPlayer
+        while true
+            Item = @Inventory::GetOwnedItem game.Players.LocalPlayer, "ColdBrewBottle"
+            Count = 0
+            if Item
+                Count = Item::GetAttribute "Count" or 1
+
+                if Count < 5
+                    @BuyItem::InvokeServer "ColdBrewBottle" if Interface.Toggles.Energy_AutoBuy.Value
+
+                if Count > 0
+                    if (Profile.Needs.Energy::GetAttribute "Value") <= 25
+                        @ConsumeFood::FireServer "ColdBrewBottle" if Interface.Toggles.Energy_AutoUse.Value
+
+            task.wait 5
 
 
 Interface::init!
 task.spawn KaraokeMinigame::init
 task.spawn HibachiMinigame::init
 task.spawn FishingMinigame::init
-task.spawn YakitoriStand::init
--- task.spawn PizzaDelivery::init
+task.spawn YakitoriStandMinigame::init
+task.spawn PizzaDeliveryMinigame::init
+task.spawn BasketballMinigame::init
+task.spawn AutoNeeds::init
