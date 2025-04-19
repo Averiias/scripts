@@ -1,5 +1,6 @@
-macro LUA_CONTINUE=()->{code:"continue",type:"text"}
+macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
+
 
 class Interface
     init: () =>
@@ -23,7 +24,22 @@ class Interface
                     ::AddToggle "Energy_AutoUse", {
                         Text: "Auto drink cold brew"
                     }
-                    ::AddLabel "_", {Text: "Cold brews are drank at 25 energy until 100", DoesWrap: true}
+                    ::AddSlider "Energy_DrinkAmount", {
+                        Text: "Drink Amount"
+                        Default: 5
+                        Min: 0
+                        Max: 50
+                        Rounding: 0
+                        Compact: false
+                    }
+                    ::AddSlider "Energy_Amount", {
+                        Text: "Minimum Amount"
+                        Default: 25
+                        Min: 0
+                        Max: 100
+                        Rounding: 0
+                        Compact: false
+                    }
             with Minigames = ::AddTab "Minigames"
                 with Karaoke = ::AddLeftGroupbox "Karaoke"
                     ::AddToggle "Karaoke_AutoPlay", {
@@ -47,11 +63,18 @@ class Interface
                     ::AddToggle "Yakitori_AutoFinish", {
                         Text: "Auto Finish"
                     }
-                with PizzaDelivery = ::AddLeftGroupbox "Pizza Delivery"
+                with PizzaDelivery = ::AddRightGroupbox "Pizza Delivery"
                     ::AddToggle "PizzaDelivery_AutoDeliver", {
                         Text: "Auto Delivery"
                     }
-                    ::AddLabel "_", {Text: "Pizzas are delivered and collected every 15 seconds", DoesWrap: true}
+                    ::AddSlider "PizzaDelivery_Time", {
+                        Text: "Delivery Time"
+                        Default: 15
+                        Min: 5
+                        Max: 30
+                        Rounding: 1
+                        Compact: false
+                    }
                 with Basketball = ::AddLeftGroupbox "Basketball"
                     ::AddToggle "Basketball_AlwaysPerfect", {
                         Text: "Always Perfect"
@@ -75,10 +98,10 @@ class KaraokeMinigame
     init: () =>
         while true
             if Interface.Toggles.Karaoke_AutoPlay.Value
-                for _, UITrack in @GameUI.Tracks::GetChildren!
+                for UITrack in *@GameUI.Tracks::GetChildren!
                     Notes = @Tracks[UITrack]
 
-                    $LUA_CONTINUE! unless Notes
+                    $LUA_CONTINUE unless Notes
 
                     TrackEnd = UITrack.End
                     TrackPosition = TrackEnd.AbsolutePosition
@@ -86,8 +109,7 @@ class KaraokeMinigame
 
                     ClosestNote = ClosestDistance = nil
 
-                    for i = #Notes, 1, -1
-                        Note = Notes[i]
+                    for Note in *Notes
                         NotePosition = Note.AbsolutePosition
                         NoteDistance = math.abs TrackPosition.Y - NotePosition.Y
 
@@ -120,11 +142,11 @@ class HibachiMinigame
         while true
             task.wait!
 
-            $LUA_CONTINUE! unless Interface.Toggles.Hibachi_AutoPlay.Value
+            $LUA_CONTINUE unless Interface.Toggles.Hibachi_AutoPlay.Value
 
-            for i, ToChop in @ToChop
+            for ToChop in *@ToChop
                 LastCF = ToChop.LastCFrame
-                $LUA_CONTINUE! unless LastCF
+                $LUA_CONTINUE unless LastCF
 
                 Model = ToChop.Model
                 Model.PrimaryPart::Destroy!
@@ -173,12 +195,11 @@ class YakitoriStandMinigame
     init: () =>
         while true
             task.wait!
-            --Yakitori = debug.getupvalue @Game.Run, 10
             Yakitoris = debug.getupvalue @Game.Run, 13
 
-            $LUA_CONTINUE! unless Yakitoris
+            $LUA_CONTINUE unless Yakitoris
 
-            for _, Yakitori in Yakitoris::GetChildren!
+            for Yakitori in *Yakitoris::GetChildren!
                 State = Yakitori::GetAttribute "State"
                 Flipped = Yakitori::GetAttribute "Flipped"
 
@@ -209,7 +230,8 @@ class PizzaDeliveryMinigame
             Old = .CreateCompletionRegion
             .CreateCompletionRegion = (_, a1, a2, a3, a4, a5, a6) ->
                 if (@JobHandler::GetCurrentJob game.Players.LocalPlayer) == "PizzaDelivery"
-                    task.delay 15, () ->
+                    warn "Created region"
+                    task.delay Interface.Options.PizzaDelivery_Time.Value, () ->
                         a5! if Interface.Toggles.PizzaDelivery_AutoDeliver.Value
 
                 return Old _, a1, a2, a3, a4, a5, a6
@@ -247,8 +269,8 @@ class AutoNeeds
     @Profile = require game.ReplicatedStorage.Systems.Profile
     @Inventory = require game.ReplicatedStorage.Systems.Inventory
 
-    @BuyItem = game.ReplicatedStorage.Systems.Shop.BuyItem --> RF
-    @ConsumeFood = game.ReplicatedStorage.Systems.Food.ConsumeFood --> RE
+    @BuyItem = game.ReplicatedStorage.Systems.Shop.BuyItem
+    @ConsumeFood = game.ReplicatedStorage.Systems.Food.ConsumeFood
 
     @init: () => 
         Profile = @Profile::GetProfile game.Players.LocalPlayer
@@ -258,12 +280,14 @@ class AutoNeeds
             if Item
                 Count = Item::GetAttribute "Count" or 1
 
-                if Count < 5
+                if Count < Interface.Options.Energy_DrinkAmount.Value
                     @BuyItem::InvokeServer "ColdBrewBottle" if Interface.Toggles.Energy_AutoBuy.Value
 
                 if Count > 0
-                    if (Profile.Needs.Energy::GetAttribute "Value") <= 25
+                    if (Profile.Needs.Energy::GetAttribute "Value") <= Interface.Options.Energy_Amount.Value
                         @ConsumeFood::FireServer "ColdBrewBottle" if Interface.Toggles.Energy_AutoUse.Value
+            else
+                @BuyItem::InvokeServer "ColdBrewBottle" if Interface.Toggles.Energy_AutoBuy.Value
 
             task.wait 5
 
