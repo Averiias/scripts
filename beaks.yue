@@ -1,149 +1,118 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"))()
-local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"))()
-do
-	local Window = Library:CreateWindow({
-		Title = "Beaks",
-		Footer = "Beaks by Ave"
-	})
-	local Gun = Window:AddTab("Main")
-	do
-		local SilentAim = Gun:AddLeftGroupbox("Gun")
-		SilentAim:AddToggle("SilentAim_Enabled", {
-			Text = "Silent Aim"
-		})
-		SilentAim:AddLabel("_", {
-			Text = "For those who want to play more legit",
-			DoesWrap = true
-		})
-	end
-	local AutoFarm = Gun:AddRightGroupbox("Auto Farm")
-	AutoFarm:AddToggle("AutoFarm_KillAll", {
-		Text = "Kill All"
-	})
-	AutoFarm:AddSlider("AutoFarm_ShootDelay", {
-		Text = "Shoot Delay",
-		Default = 0.1,
-		Min = 0,
-		Max = 1,
-		Rounding = 2,
-		Compact = false,
-		Suffix = "s"
-	})
-	AutoFarm:AddToggle("AutoFarm_AutoSell", {
-		Text = "Auto Sell"
-	})
-end
-local Aether = require(game.ReplicatedStorage.Packages.Aether)
-local Camera = workspace.CurrentCamera
-local UserInputService = game:GetService("UserInputService")
-local GetMouseLocation
-do
-	local _base_0 = UserInputService
-	local _fn_0 = _base_0.GetMouseLocation
-	GetMouseLocation = _fn_0 and function(...)
-		return _fn_0(_base_0, ...)
-	end
-end
-local WorldToScreenPoint
-do
-	local _base_0 = Camera
-	local _fn_0 = _base_0.WorldToScreenPoint
-	WorldToScreenPoint = _fn_0 and function(...)
-		return _fn_0(_base_0, ...)
-	end
-end
-local GetChildren = game.GetChildren
-local GetClosestBird
-GetClosestBird = function()
-	local ClosestBird = nil
-	local ClosestDistance = math.huge
-	local ScreenPosition = nil
-	local _list_0 = workspace.Regions:GetChildren()
-	for _index_0 = 1, #_list_0 do
-		local Region = _list_0[_index_0]
-		local MouseLocation = GetMouseLocation()
-		MouseLocation = Vector2.new(MouseLocation.X, MouseLocation.Y)
-		local _list_1 = GetChildren(Region.ClientBirds)
-		for _index_1 = 1, #_list_1 do
-			local Bird = _list_1[_index_1]
-			local BirdPos, OnScreen = WorldToScreenPoint(Bird.PrimaryPart.Position)
-			local BirdScreenPos = Vector2.new(BirdPos.X, BirdPos.Y)
-			if not OnScreen then
-continue
-			end
-			local Distance = (MouseLocation - BirdScreenPos).Magnitude
-			if Distance <= ClosestDistance then
-				ClosestBird = Bird
-				ClosestDistance = Distance
-				ScreenPosition = BirdScreenPos
-			end
-		end
-	end
-	return ClosestBird, ClosestDistance, ScreenPosition
-end
-local FastCastRedux = require(Aether.GetUtil("FastCastRedux"))
-do
-	local OldFire = FastCastRedux.Fire
-	FastCastRedux.Fire = function(Self, ShootFrom, ShootDirection, Distance, Params)
-		local ClosestBird = GetClosestBird()
-		local PrimaryPart
-		if ClosestBird ~= nil then
-			PrimaryPart = ClosestBird.PrimaryPart
-		end
-		if PrimaryPart and Library.Toggles.SilentAim_Enabled.Value then
-			ShootFrom = PrimaryPart.Position + Vector3.new(0, 1, 0)
-			ShootDirection = Vector3.new(0, -1, 0)
-		end
-		return OldFire(Self, ShootFrom, ShootDirection, Distance, Params)
-	end
-end
-local Net = require(Aether.GetUtil("Net"))
-local GunShootEvent = Net:RemoteEvent("GunShootEvent")
-local SellInventory = Net:RemoteFunction("SellInventory")
-local LocalPlayer = game.Players.LocalPlayer
-local GunList = require(game.ReplicatedStorage.Configuration.Guns)
-while true do
-	task.wait()
-	local Weapon
-	do
-		local _obj_0 = LocalPlayer.Character
-		if _obj_0 ~= nil then
-			Weapon = _obj_0:FindFirstChildWhichIsA("Tool")
-		end
-	end
-	if not GunList[(function()
-		if Weapon ~= nil then
-			return Weapon.Name
-		end
-		return nil
-	end)()] then
-continue
-	end
-	local HandlePart = Weapon:FindFirstChild("HandlePart", true)
-	if not HandlePart then
-continue
-	end
-	local ClosestBird = GetClosestBird()
-	if not ClosestBird then
-continue
-	end
-	if Library.Toggles.AutoFarm_KillAll.Value then
-		local HandlePos = HandlePart.Position
-		local BirdPos = ClosestBird.PrimaryPart.Position
-		repeat
-			GunShootEvent:FireServer("BulletFired", Weapon, HandlePart.Position, "Dart")
-			GunShootEvent:FireServer("BirdHit", Weapon, ClosestBird.PrimaryPart.Position, (ClosestBird:GetAttribute("Id")), "Dart")
-			task.wait(Library.Options.AutoFarm_ShootDelay.Value)
-		until not (function()
-				if ClosestBird ~= nil then
-					return ClosestBird.PrimaryPart
-				end
-				return nil
-			end)()
-	end
-	if Library.Toggles.AutoFarm_AutoSell.Value then
-		SellInventory:InvokeServer("All")
-	end
-	task.wait(Library.Options.AutoFarm_ShootDelay.Value)
-end
+macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
+
+$LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
+$LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+$LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
+
+with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave"}
+    with Gun = ::AddTab "Main"
+        with SilentAim = ::AddLeftGroupbox "Gun"
+            ::AddToggle "SilentAim_Enabled", {
+                Text: "Silent Aim"
+            }
+            ::AddLabel "_", {Text: "For those who want to play more legit", DoesWrap: true}
+        with AutoFarm = ::AddRightGroupbox "Auto Farm"
+            ::AddToggle "AutoFarm_KillAll", {
+                Text: "Kill All"
+            }
+            ::AddSlider "AutoFarm_ShootDelay", {
+                Text: "Shoot Delay",
+                Default: 0.1
+                Min: 0
+                Max: 1
+                Rounding: 2
+                Compact: false
+                Suffix: "s"
+            }
+            ::AddToggle "AutoFarm_AutoSell", {
+                Text: "Auto Sell"
+            }
+
+Aether = require game.ReplicatedStorage.Packages.Aether
+
+Camera = workspace.CurrentCamera
+
+UserInputService = game::GetService "UserInputService"
+
+GetMouseLocation = UserInputService::GetMouseLocation
+WorldToScreenPoint = Camera::WorldToScreenPoint
+GetChildren = game.GetChildren
+
+GetClosestBird = () ->
+    ClosestBird = nil
+    ClosestDistance = math.huge
+    ScreenPosition = nil
+
+    for Region in *workspace.Regions::GetChildren!
+        MouseLocation = GetMouseLocation!
+        MouseLocation = Vector2.new MouseLocation.X, MouseLocation.Y
+
+        for Bird in *GetChildren Region.ClientBirds
+            BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
+            BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
+
+            $LUA_CONTINUE unless OnScreen
+
+            Distance = (MouseLocation - BirdScreenPos).Magnitude
+
+            if Distance <= ClosestDistance
+                ClosestBird = Bird
+                ClosestDistance = Distance
+                ScreenPosition = BirdScreenPos
+
+    return ClosestBird, ClosestDistance, ScreenPosition
+
+
+-- Silent aim with instant hit
+FastCastRedux = require Aether.GetUtil "FastCastRedux"
+
+with FastCastRedux
+    OldFire = .Fire
+    .Fire = (Self, ShootFrom, ShootDirection, Distance, Params) ->
+        ClosestBird = GetClosestBird!
+
+        PrimaryPart = ClosestBird?.PrimaryPart
+
+        if PrimaryPart and Library.Toggles.SilentAim_Enabled.Value
+            ShootFrom = PrimaryPart.Position + Vector3.new 0, 1, 0
+            ShootDirection = Vector3.new 0, -1, 0
+
+        return OldFire Self, ShootFrom, ShootDirection, Distance, Params
+
+-- Auto Farm
+Net = require Aether.GetUtil "Net"
+GunShootEvent = Net::RemoteEvent "GunShootEvent"
+SellInventory = Net::RemoteFunction "SellInventory"
+
+LocalPlayer = game.Players.LocalPlayer
+
+GunList = require game.ReplicatedStorage.Configuration.Guns
+
+while true
+    task.wait!
+
+    Weapon = LocalPlayer.Character?::FindFirstChildWhichIsA "Tool"
+
+    $LUA_CONTINUE unless GunList[Weapon?.Name]
+
+    HandlePart = Weapon::FindFirstChild "HandlePart", true
+    
+    $LUA_CONTINUE unless HandlePart
+
+    ClosestBird = GetClosestBird!
+
+    $LUA_CONTINUE unless ClosestBird
+
+    if Library.Toggles.AutoFarm_KillAll.Value
+        HandlePos = HandlePart.Position
+        BirdPos = ClosestBird.PrimaryPart.Position
+        repeat
+            GunShootEvent::FireServer "BulletFired", Weapon, HandlePart.Position, "Dart"
+            GunShootEvent::FireServer "BirdHit", Weapon, ClosestBird.PrimaryPart.Position, (ClosestBird::GetAttribute "Id"), "Dart"
+            task.wait Library.Options.AutoFarm_ShootDelay.Value
+        until not ClosestBird?.PrimaryPart
+
+    SellInventory::InvokeServer "All" if Library.Toggles.AutoFarm_AutoSell.Value
+    
+    task.wait Library.Options.AutoFarm_ShootDelay.Value
