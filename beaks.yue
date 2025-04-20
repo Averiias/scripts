@@ -1,0 +1,121 @@
+macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
+
+$LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
+$LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+$LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
+
+with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave"}
+    with Gun = ::AddTab "Main"
+        with SilentAim = ::AddLeftGroupbox "Gun"
+            ::AddToggle "SilentAim_Enabled", {
+                Text: "Silent Aim"
+            }
+            ::AddLabel "_", {Text: "For those who want to play more legit", DoesWrap: true}
+        with AutoFarm = ::AddRightGroupbox "Auto Farm"
+            ::AddToggle "AutoFarm_KillAll", {
+                Text: "Kill All"
+            }
+            ::AddSlider "AutoFarm_ShootDelay", {
+                Text: "Shoot Delay",
+                Default: 0.1
+                Min: 0
+                Max: 1
+                Rounding: 2
+                Compact: false
+                Suffix: "s"
+            }
+            ::AddToggle "AutoFarm_AutoSell", {
+                Text: "Auto Sell"
+            }
+
+Aether = require game.ReplicatedStorage.Packages.Aether
+
+Camera = workspace.CurrentCamera
+
+UserInputService = game::GetService "UserInputService"
+
+GetMouseLocation = UserInputService::GetMouseLocation
+WorldToScreenPoint = Camera::WorldToScreenPoint
+GetChildren = game.GetChildren
+
+GetRegion = () ->
+    for Region in *workspace.Regions::GetChildren!
+        if #(Region.ClientBirds::GetChildren!) > 0
+            return Region
+
+GetClosestBird = () ->
+    ClosestBird = nil
+    ClosestDistance = math.huge
+    ScreenPosition = nil
+
+    Region = GetRegion!
+
+    return unless Region
+
+    MouseLocation = GetMouseLocation!
+    MouseLocation = Vector2.new MouseLocation.X, MouseLocation.Y
+
+    for Bird in *GetChildren Region.ClientBirds
+        BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
+        BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
+
+        $LUA_CONTINUE unless OnScreen
+
+        Distance = (MouseLocation - BirdScreenPos).Magnitude
+
+        if Distance <= ClosestDistance
+            ClosestBird = Bird
+            ClosestDistance = Distance
+            ScreenPosition = BirdScreenPos
+
+    return ClosestBird, ClosestDistance, ScreenPosition
+
+
+-- Silent aim with instant hit
+FastCastRedux = require Aether.GetUtil "FastCastRedux"
+
+with FastCastRedux
+    OldFire = .Fire
+    .Fire = (Self, ShootFrom, ShootDirection, Distance, Params) ->
+        ClosestBird = GetClosestBird!
+
+        PrimaryPart = ClosestBird?.PrimaryPart
+
+        if PrimaryPart and Library.Toggles.SilentAim_Enabled.Value
+            ShootFrom = PrimaryPart.Position + Vector3.new 0, 1, 0
+            ShootDirection = Vector3.new 0, -1, 0
+
+        return OldFire Self, ShootFrom, ShootDirection, Distance, Params
+
+-- Auto Farm
+Net = require Aether.GetUtil "Net"
+GunShootEvent = Net::RemoteEvent "GunShootEvent"
+SellInventory = Net::RemoteFunction "SellInventory"
+
+LocalPlayer = game.Players.LocalPlayer
+
+GunList = require game.ReplicatedStorage.Configuration.Guns
+
+while true
+    task.wait!
+
+    Weapon = LocalPlayer.Character?::FindFirstChildWhichIsA "Tool" -- Assuming its a weapon lol
+
+    $LUA_CONTINUE unless GunList[Weapon?.Name]
+
+    HandlePart = Weapon::FindFirstChild "HandlePart", true
+    
+    $LUA_CONTINUE unless HandlePart
+
+    ClosestBird = GetClosestBird!
+
+    $LUA_CONTINUE unless ClosestBird
+
+    if Library.Toggles.AutoFarm_KillAll.Value
+        GunShootEvent::FireServer "BulletFired", Weapon, HandlePart.Position, "Dart"
+        GunShootEvent::FireServer "BirdHit", Weapon, ClosestBird.PrimaryPart.Position, (ClosestBird::GetAttribute "Id"), "Dart"
+
+    SellInventory::InvokeServer "All" if Library.Toggles.AutoFarm_AutoSell.Value
+    
+    task.wait Library.Options.AutoFarm_ShootDelay.Value
