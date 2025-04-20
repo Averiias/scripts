@@ -39,35 +39,27 @@ GetMouseLocation = UserInputService::GetMouseLocation
 WorldToScreenPoint = Camera::WorldToScreenPoint
 GetChildren = game.GetChildren
 
-GetRegion = () ->
-    for Region in *workspace.Regions::GetChildren!
-        if #(Region.ClientBirds::GetChildren!) > 0
-            return Region
-
 GetClosestBird = () ->
     ClosestBird = nil
     ClosestDistance = math.huge
     ScreenPosition = nil
 
-    Region = GetRegion!
+    for Region in *workspace.Regions::GetChildren!
+        MouseLocation = GetMouseLocation!
+        MouseLocation = Vector2.new MouseLocation.X, MouseLocation.Y
 
-    return unless Region
+        for Bird in *GetChildren Region.ClientBirds
+            BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
+            BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
 
-    MouseLocation = GetMouseLocation!
-    MouseLocation = Vector2.new MouseLocation.X, MouseLocation.Y
+            $LUA_CONTINUE unless OnScreen
 
-    for Bird in *GetChildren Region.ClientBirds
-        BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
-        BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
+            Distance = (MouseLocation - BirdScreenPos).Magnitude
 
-        $LUA_CONTINUE unless OnScreen
-
-        Distance = (MouseLocation - BirdScreenPos).Magnitude
-
-        if Distance <= ClosestDistance
-            ClosestBird = Bird
-            ClosestDistance = Distance
-            ScreenPosition = BirdScreenPos
+            if Distance <= ClosestDistance
+                ClosestBird = Bird
+                ClosestDistance = Distance
+                ScreenPosition = BirdScreenPos
 
     return ClosestBird, ClosestDistance, ScreenPosition
 
@@ -100,7 +92,7 @@ GunList = require game.ReplicatedStorage.Configuration.Guns
 while true
     task.wait!
 
-    Weapon = LocalPlayer.Character?::FindFirstChildWhichIsA "Tool" -- Assuming its a weapon lol
+    Weapon = LocalPlayer.Character?::FindFirstChildWhichIsA "Tool"
 
     $LUA_CONTINUE unless GunList[Weapon?.Name]
 
