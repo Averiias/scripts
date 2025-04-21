@@ -16,6 +16,7 @@ with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave"}
             ::AddToggle "AutoFarm_KillAll", {
                 Text: "Kill All"
             }
+            ::AddLabel "_", {Text: "Make sure to have your weapon out to use this.", DoesWrap: true}
             ::AddSlider "AutoFarm_ShootDelay", {
                 Text: "Shoot Delay",
                 Default: 0.1
@@ -49,6 +50,13 @@ GetClosestBird = () ->
         MouseLocation = Vector2.new MouseLocation.X, MouseLocation.Y
 
         for Bird in *GetChildren Region.ClientBirds
+
+            Health = Bird::GetAttribute "Health"
+            Visible = Bird::GetAttribute "CurrentlyVisible"
+
+            $LUA_CONTINUE unless Visible
+            $LUA_CONTINUE if not Health or Health == 0
+
             BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
             BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
 
@@ -100,18 +108,19 @@ while true
     
     $LUA_CONTINUE unless HandlePart
 
-    ClosestBird = GetClosestBird!
+    for Region in *workspace.Regions::GetChildren!
+        for Bird in *Region.ClientBirds::GetChildren!
+            Health = Bird::GetAttribute "Health"
+            Visible = Bird::GetAttribute "CurrentlyVisible"
 
-    $LUA_CONTINUE unless ClosestBird
+            $LUA_CONTINUE unless Visible
+            $LUA_CONTINUE if not Health or Health == 0
 
-    if Library.Toggles.AutoFarm_KillAll.Value
-        HandlePos = HandlePart.Position
-        BirdPos = ClosestBird.PrimaryPart.Position
-        repeat
-            GunShootEvent::FireServer "BulletFired", Weapon, HandlePart.Position, "Dart"
-            GunShootEvent::FireServer "BirdHit", Weapon, ClosestBird.PrimaryPart.Position, (ClosestBird::GetAttribute "Id"), "Dart"
-            task.wait Library.Options.AutoFarm_ShootDelay.Value
-        until not ClosestBird?.PrimaryPart
+            if Library.Toggles.AutoFarm_KillAll.Value
+                HandlePos = HandlePart.Position
+                BirdPos = Bird.PrimaryPart.Position
+                GunShootEvent::FireServer "BulletFired", Weapon, HandlePart.Position, "Dart"
+                GunShootEvent::FireServer "BirdHit", Weapon, Bird.PrimaryPart.Position, (Bird::GetAttribute "Id"), "Dart"
 
     SellInventory::InvokeServer "All" if Library.Toggles.AutoFarm_AutoSell.Value
     
