@@ -1,11 +1,20 @@
 macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
-macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 
 $LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
 $LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
 $LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
 
-with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave"}
+with ThemeManager
+    ::SetLibrary Library
+    ::SetFolder("pudding")
+with SaveManager
+    SaveManager::SetLibrary Library
+    SaveManager::IgnoreThemeSettings!
+    SaveManager::SetIgnoreIndexes {"MenuKeybind"}
+    SaveManager::SetFolder("pudding/beaks")
+
+with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave | discord.gg/RVED6GzEyG"}
     with Gun = ::AddTab "Main"
         with SilentAim = ::AddLeftGroupbox "Gun"
             ::AddToggle "SilentAim_Enabled", {
@@ -29,6 +38,13 @@ with Window = Library::CreateWindow {Title: "Beaks", Footer: "Beaks by Ave"}
             ::AddToggle "AutoFarm_AutoSell", {
                 Text: "Auto Sell"
             }
+    with Settings = ::AddTab "Settings"
+        with UI = ::AddRightGroupbox "UI"
+            with BindLabel = ::AddLabel "Menu Keybind"
+                ::AddKeyPicker("MenuKeybind", { Default: "RightShift", NoUI: true, Text: "Menu Keybind" })
+                Library.ToggleKeybind = Library.Options.MenuKeybind
+        SaveManager::BuildConfigSection Settings
+        ThemeManager::ApplyToTab Settings
 
 Aether = require game.ReplicatedStorage.Packages.Aether
 

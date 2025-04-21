@@ -1,5 +1,5 @@
 macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
-macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"lua"}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 
 
 class Interface
@@ -8,14 +8,19 @@ class Interface
         $LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
         $LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
 
-        @Library = Library
-        @ThemeManager = ThemeManager
-        @SaveManager = SaveManager
+        @Toggles = Library.Toggles
+        @Options = Library.Options
 
-        @Toggles = @Library.Toggles
-        @Options = @Library.Options
+        with ThemeManager
+            ::SetLibrary Library
+            ::SetFolder("pudding")
+        with SaveManager
+            SaveManager::SetLibrary Library
+            SaveManager::IgnoreThemeSettings!
+            SaveManager::SetIgnoreIndexes {"MenuKeybind"}
+            SaveManager::SetFolder("pudding/animelife")
 
-        with Window = Library::CreateWindow {Title: "Anime Life", Footer: "Anime Life by Ave"}
+        with Window = Library::CreateWindow {Title: "Anime Life", Footer: "Anime Life by Ave | discord.gg/RVED6GzEyG"}
             with Needs = ::AddTab "Needs"
                 with Energy = ::AddLeftGroupbox "Energy"
                     ::AddToggle "Energy_AutoBuy", {
@@ -82,6 +87,13 @@ class Interface
                     ::AddToggle "Basketball_AutoHoop", {
                         Text: "Auto Hoop"
                     }
+            with Settings = ::AddTab "Settings"
+                with UI = ::AddRightGroupbox "UI"
+                    with BindLabel = ::AddLabel "Menu Keybind"
+                        ::AddKeyPicker("MenuKeybind", { Default: "RightShift", NoUI: true, Text: "Menu Keybind" })
+                        Library.ToggleKeybind = Library.Options.MenuKeybind
+                SaveManager::BuildConfigSection Settings
+                ThemeManager::ApplyToTab Settings
 
 class KaraokeMinigame
     @Game = require game.ReplicatedStorage.Systems.Gui.Views.KaraokeGame
