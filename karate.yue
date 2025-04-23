@@ -1,0 +1,326 @@
+macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
+
+$LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
+$LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+$LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
+
+with ThemeManager
+    ::SetLibrary Library
+    ::SetFolder("pudding")
+with SaveManager
+    SaveManager::SetLibrary Library
+    SaveManager::IgnoreThemeSettings!
+    SaveManager::SetIgnoreIndexes {"MenuKeybind"}
+    SaveManager::SetFolder("pudding/karate")
+
+with Window = Library::CreateWindow {Title: "Karate", Footer: "Karate By Ave | discord.gg/RVED6GzEyG", ShowCustomCursor: false}
+    with Needs = ::AddTab "Main"
+        with AutoBlocker = ::AddLeftGroupbox "Auto Blocker"
+            with AB_Enabled = ::AddToggle "AutoBlock_Enabled", {Text: "Enabled"}
+                ::AddKeyPicker "AutoBlock_Enabled", {
+                    Default: "F"
+                    SyncToggleState: true
+                    Mode: "Toggle"
+                    Text: "Auto Block Keybind"
+                    NoUI: false
+                }
+            ::AddSlider "AutoBlock_BlockChance", {
+                Text: "Block Chance",
+                Default: 100
+                Min: 0
+                Max: 100
+                Rounding: 0
+                Compact: true
+                Suffix: "%"
+            }
+            ::AddSlider "AutoBlock_Distance", {
+                Text: "Max Block Distance",
+                Default: 10
+                Min: 0
+                Max: 20
+                Rounding: 1
+                Compact: false
+                Suffix: " studs"
+            }
+            ::AddToggle "AutoBlock_IgnorePlayersBehind", {
+                Text: "Ignore Players Behind"
+            }
+            ::AddToggle "AutoBlock_IgnoreNotInGame", {
+                Text: "Ignore Outside of Arena"
+            }
+            ::AddSlider "AutoBlock_StartDelay", {
+                Text: "Block Start Delay",
+                Default: 0
+                Min: 1
+                Max: 1000
+                Rounding: 0
+                Compact: false
+                Suffix: " ms"
+            }
+            ::AddToggle "AutoBlock_RandomStart", {
+                Text: "Randomize Start Delay"
+            }
+            ::AddSlider "AutoBlock_ReleaseDelay", {
+                Text: "Block Stop Delay",
+                Default: 100
+                Min: 1
+                Max: 1000
+                Rounding: 0
+                Compact: false
+                Suffix: " ms"
+            }
+            ::AddToggle "AutoBlock_RandomRelease", {
+                Text: "Randomize Release Delay"
+            }
+        with AutoClash = ::AddRightGroupbox "Auto Clash"
+            ::AddToggle "AutoClash_Enabled", {
+                Text: "Clash if Block CD"
+            }
+            ::AddToggle "AutoClash_UsePunch", {
+                Text: "Use Punch"
+            }
+            ::AddToggle "AutoClash_UseLeftKick", {
+                Text: "Use Left Kick"
+            }
+            ::AddToggle "AutoClash_UseRightKick", {
+                Text: "Use Right Kick"
+            }
+            ::AddLabel "_", {
+                Text: "Set below to your ingame keybinds",
+                DoesWrap: true
+            }
+            with LeftKick = ::AddLabel "Left Kick Keybind"
+                ::AddKeyPicker "AutoClash_LeftKick", {
+                    Text: "Left Kick Keybind",
+                    Default: "Q",
+                    Mode: "Always"
+                    NoUI: true
+                }
+            with RightKick = ::AddLabel "Right Kick Keybind"
+                ::AddKeyPicker "AutoClash_RightKick", {
+                    Text: "Right Kick Keybind",
+                    Default: "E",
+                    Mode: "Always"
+                    NoUI: true
+                }
+            ::AddLabel "_", {
+                Text: "Auto clash only activates when you have Auto Block enabled"
+                DoesWrap: true
+            }
+        with Misc = ::AddRightGroupbox "Misc"
+            ::AddToggle "Misc_DisableWhenAFK", {
+                Text: "Disable when AFK"
+            }
+            ::AddToggle "Misc_DisableWhenRoundEnds", {
+                Text: "Disable when round ends"
+            }
+    with Settings = ::AddTab "Settings"
+        with UI = ::AddRightGroupbox "UI"
+            with BindLabel = ::AddLabel "Menu Keybind"
+                ::AddKeyPicker("MenuKeybind", { Default: "RightShift", NoUI: true, Text: "Menu Keybind" })
+                Library.ToggleKeybind = Library.Options.MenuKeybind
+        SaveManager::BuildConfigSection Settings
+        ThemeManager::ApplyToTab Settings
+
+Animations = []
+Emotes = []
+
+-- for xeno and solara
+Animations = (game::HttpGet "https://gist.githubusercontent.com/Averiias/bfb5b308269e0c2c38c25a3c975f9da1/raw/c55781e86f834394940b92b6a8e8266efd53ebeb/anim.ids")::split "\n"
+
+
+
+-- for i,v in getgc true
+--     if ((typeof v) == "table") and rawget v, "Emotes"
+--         if (typeof v.Emotes) == "function"
+--             UpValues = debug.getupvalues v.Emotes
+--             if (typeof UpValues[2]) == "table"
+--                 for i,v in next, UpValues[2].Emotes
+--                     -- warn v.id
+--                     Emotes[] = tostring v.id
+
+-- for i, v in getgc true
+--     if (typeof v) == "table"
+--         if rawget v, "Punch"
+--             for t,k in v
+--                 Animations[] = tostring k
+
+Events = nil
+
+LocalPlayer = game.Players.LocalPlayer
+
+IsPassive = (Animation) -> table.find Animations, Animation
+IsEmote = (Animation) -> table.find Emotes, Animation
+
+GetCurrentArena = () ->
+    CurrentArena = nil
+    Opponent = nil
+    for Arena in *workspace.Arenas::GetChildren!
+        Info = Arena::FindFirstChild "Info"
+        P1 = Info?::FindFirstChild "P1", true
+        P2 = Info?::FindFirstChild "P2", true
+
+        $LUA_CONTINUE unless (Info?::FindFirstChild "Active")?.Value
+
+        if P1 and P2
+            T1 = P1.Title.Text
+            T2 = P2.Title.Text
+
+            if T1 == LocalPlayer.Name
+                CurrentArena = Arena
+                Opponent = T2
+            if T2 == LocalPlayer.Name
+                CurrentArena = Arena
+                Opponent = T1
+
+    return CurrentArena, Opponent
+
+IsPlayerBehind = (PRP, TRP) ->
+    LookVector = PRP.CFrame.LookVector
+    Direction = (PRP.Position - TRP.Position).Unit
+    DotResult = LookVector::Dot Direction
+    return DotResult < -0.5
+
+IsBusy = false
+IsBlockBusy = false
+
+VirtualInputManager = game::GetService "VirtualInputManager"
+
+Block = (IsHeld) ->
+    VirtualInputManager::SendMouseButtonEvent 500, 500, 1, IsHeld, game, 1
+
+Arena = Target = nil
+
+Punch = (IsHeld) ->
+    VirtualInputManager::SendMouseButtonEvent 500, 500, 0, IsHeld, game, 1
+
+PressKeyDown = (IsHeld, Key) ->
+    VirtualInputManager::SendKeyEvent IsHeld, Key, false, game
+
+Attack = (ReleaseDelay) ->
+    States = {}
+
+    if Library.Toggles.AutoClash_UsePunch.Value
+        States[] = "Punch"
+    if Library.Toggles.AutoClash_UseLeftKick.Value
+        States[] = "LeftKick"
+    if Library.Toggles.AutoClash_UseRightKick.Value
+        States[] = "RightKick"
+
+    Option = States[math.random 1, #States]
+
+    switch Option
+        when "Punch"
+            Punch true
+            task.wait ReleaseDelay
+            Punch false
+        when "LeftKick"
+            PressKeyDown true, Library.Options.AutoClash_LeftKick.Value
+            task.wait ReleaseDelay
+            PressKeyDown false, Library.Options.AutoClash_LeftKick.Value
+        when "RightKick"
+            PressKeyDown true, Library.Options.AutoClash_RightKick.Value
+            task.wait ReleaseDelay
+            PressKeyDown false, Library.Options.AutoClash_RightKick.Value
+
+task.spawn () ->
+    while task.wait 0.5
+        Arena, Target = GetCurrentArena!
+
+while true
+    task.wait!
+    if (not IsBusy) and Library.Toggles.AutoBlock_Enabled.Value
+        if Library.Toggles.AutoBlock_IgnoreNotInGame.Value
+            $LUA_CONTINUE unless Target
+        
+        if Library.Toggles.Misc_DisableWhenAFK.Value
+            Character = LocalPlayer.Character
+            Info = Character?::FindFirstChild "Info"
+            AFK = Info?::FindFirstChild "AFK"
+            $LUA_CONTINUE if AFK?.Value
+
+        if Library.Toggles.Misc_DisableWhenRoundEnds.Value
+            if Library.Toggles.AutoBlock_IgnoreNotInGame.Value
+                Display = Arena?::FindFirstChild "Display"
+                Title = Display?::FindFirstChild "Title"
+
+                if Title
+                    A = Title::find LocalPlayer.Name
+                    B = Title::find Target.Name
+
+                    $LUA_CONTINUE unless A and B
+
+
+        for Player in *game.Players::GetPlayers!
+            $LUA_CONTINUE if Player == LocalPlayer
+
+
+            $LUA_CONTINUE if (Library.Toggles.AutoBlock_IgnoreNotInGame.Value and (Target != Player.Name))
+
+            LPCharacter = LocalPlayer.Character
+            Character = Player.Character
+
+            if LPCharacter and Character
+                LPHumanoidRootPart = LPCharacter::FindFirstChild "HumanoidRootPart"
+                HumanoidRootPart = Character::FindFirstChild "HumanoidRootPart"
+                Humanoid = Character::FindFirstChild "Humanoid"
+
+                if LPHumanoidRootPart and HumanoidRootPart and Humanoid
+                    if Library.Toggles.AutoBlock_IgnorePlayersBehind.Value
+                        unless IsPlayerBehind LPHumanoidRootPart, HumanoidRootPart
+                            $LUA_CONTINUE
+                    
+                    Distance = (LPHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+                    $LUA_CONTINUE unless Distance < Library.Options.AutoBlock_Distance.Value
+                    Tracks = Humanoid::GetPlayingAnimationTracks!
+
+                    for _, AnimationTrack in Tracks
+                        Animation = AnimationTrack.Animation.AnimationId
+                        $LUA_CONTINUE if Animation::find "http://"
+                        Standard = Animation::gsub "rbxassetid://", ""
+                        
+                        $LUA_CONTINUE if IsPassive Standard
+                        $LUA_CONTINUE if IsEmote Standard
+                        $LUA_CONTINUE if AnimationTrack.TimePosition < 0.05
+                        $LUA_CONTINUE if AnimationTrack.TimePosition > 0.1
+
+                        IsBusy = true
+                        StartDelay = Library.Options.AutoBlock_StartDelay.Value
+                        ReleaseDelay = Library.Options.AutoBlock_ReleaseDelay.Value
+
+                        if Library.Toggles.AutoBlock_RandomStart.Value
+                            StartDelay = math.random 1, StartDelay
+                        if Library.Toggles.AutoBlock_RandomRelease.Value
+                            ReleaseDelay = math.random 1, ReleaseDelay
+
+                        CombatGui = LocalPlayer.PlayerGui.Combat
+                        BlockState = CombatGui.Main.Block.Bar.UIGradient
+                        AttackState = CombatGui.Main.Attack.Bar.UIGradient
+
+                        BlockChance = Library.Options.AutoBlock_BlockChance.Value
+                        RolledChance = math.random(1, 100)
+
+                        if BlockChance > RolledChance
+                            if BlockState.Offset.X >= 0.49
+                                task.wait (StartDelay / 1000)
+                                Block true
+                                task.wait (ReleaseDelay / 1000)
+                                Block false
+                            else
+                                if Library.Toggles.AutoClash_Enabled.Value
+                                    task.wait (StartDelay / 1000)
+                                    Attack (ReleaseDelay / 1000)
+                        else
+                            if AttackState.Offset.X >= 0.49
+                                if Library.Toggles.AutoClash_Enabled.Value
+                                    task.wait (StartDelay / 1000)
+                                    Attack (ReleaseDelay / 1000)
+                            else
+                                task.wait (StartDelay / 1000)
+                                Block true
+                                task.wait (ReleaseDelay / 1000)
+                                Block false
+
+                        task.wait AnimationTrack.Length
+                        IsBusy = false
