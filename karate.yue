@@ -208,6 +208,8 @@ Attack = (ReleaseDelay) ->
     if Library.Toggles.AutoClash_UseRightKick.Value
         States[] = "RightKick"
 
+    return unless #States > 0
+
     Option = States[math.random 1, #States]
 
     switch Option
