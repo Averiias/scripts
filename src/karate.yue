@@ -185,15 +185,38 @@ IsPlayerBehind = (PRP, TRP) ->
 IsBusy = false
 IsBlockBusy = false
 
-VirtualInputManager = game::GetService "VirtualInputManager"
+VirtualInputManager = nil
+pcall () ->
+    VirtualInputManager = Instance.new "VirtualInputManager"
+
+unless VirtualInputManager
+    Library.Toggles.AutoClash_UseRightKick::SetDisabled true
+    Library.Toggles.AutoClash_UseLeftKick::SetDisabled true
+    Library::Notify {
+        Title: "Unsupported"
+        Description: "Your executor does not support auto counter for kicks!"
+        Time: 10
+    }
 
 Block = (IsHeld) ->
-    VirtualInputManager::SendMouseButtonEvent 500, 500, 1, IsHeld, game, 1
+    VirtualInputManager::SendMouseButtonEvent 500, 500, 1, IsHeld, game, 1 if VirtualInputManager
+
+    unless VirtualInputManager
+        if IsHeld
+            mouse2press!
+        else
+            mouse2release!
 
 Arena = Target = nil
 
 Punch = (IsHeld) ->
-    VirtualInputManager::SendMouseButtonEvent 500, 500, 0, IsHeld, game, 1
+    VirtualInputManager::SendMouseButtonEvent 500, 500, 0, IsHeld, game, 1 if VirtualInputManager
+
+    unless VirtualInputManager
+        if IsHeld
+            mouse1press!
+        else
+            mouse1release!
 
 PressKeyDown = (IsHeld, Key) ->
     VirtualInputManager::SendKeyEvent IsHeld, Key, false, game
