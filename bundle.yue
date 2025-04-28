@@ -31,6 +31,8 @@ for File in lfs.dir (Paths.src)
         GameId = (File::read "*l")
         GameId = GameId::sub 3, #GameId-1
 
+        continue if GameId == "0"
+
         Content = File::read "*all"
         File::close!
 
@@ -38,7 +40,7 @@ for File in lfs.dir (Paths.src)
 
         Code, Err, Globals = yue.to_lua Content, {
             implicit_return_root: true
-            reserve_line_number: true
+            reserve_line_number: false
             lint_global: true
             space_over_tab: false
             options: {

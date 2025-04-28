@@ -111,6 +111,9 @@ with Window = Library::CreateWindow {Title: "Karate", Footer: "Karate By Ave | d
                 DoesWrap: true
             }
         with Misc = ::AddRightGroupbox "Misc"
+            ::AddToggle "Misc_UseCombatController", {
+                Text: "Use Combat Controller"
+            }
             ::AddToggle "Misc_DisableWhenAFK", {
                 Text: "Disable when AFK"
             }
@@ -128,27 +131,23 @@ with Window = Library::CreateWindow {Title: "Karate", Footer: "Karate By Ave | d
 Animations = []
 Emotes = []
 
+CombatController = nil
+if getgc
+    for i,v in getgc true
+        if ((typeof v) == "table") and (rawget v, "Action") and (rawget v, "BlockManager")
+            CombatController = v
+
+unless CombatController
+    Library.Toggles.Misc_UseCombatController::SetDisabled true
+else
+    Library::Notify {
+        Title: "Combat Controller"
+        Description: "Your executor supports usage of the combat controller"
+        Time: 5
+    }
+
 -- for xeno and solara
 Animations = (game::HttpGet "https://gist.githubusercontent.com/Averiias/bfb5b308269e0c2c38c25a3c975f9da1/raw/c55781e86f834394940b92b6a8e8266efd53ebeb/anim.ids")::split "\n"
-
-
-
--- for i,v in getgc true
---     if ((typeof v) == "table") and rawget v, "Emotes"
---         if (typeof v.Emotes) == "function"
---             UpValues = debug.getupvalues v.Emotes
---             if (typeof UpValues[2]) == "table"
---                 for i,v in next, UpValues[2].Emotes
---                     -- warn v.id
---                     Emotes[] = tostring v.id
-
--- for i, v in getgc true
---     if (typeof v) == "table"
---         if rawget v, "Punch"
---             for t,k in v
---                 Animations[] = tostring k
-
-Events = nil
 
 LocalPlayer = game.Players.LocalPlayer
 
@@ -201,24 +200,30 @@ unless VirtualInputManager
     }
 
 Block = (IsHeld) ->
-    VirtualInputManager::SendMouseButtonEvent 500, 500, 1, IsHeld, game, 1 if VirtualInputManager
+    if CombatController and Library.Toggles.Misc_UseCombatController.Value
+        task.spawn CombatController.Action "Block", IsHeld and Enum.UserInputState.Begin or Enum.UserInputState.End
+    else
+        VirtualInputManager::SendMouseButtonEvent 500, 500, 1, IsHeld, game, 1 if VirtualInputManager
 
-    unless VirtualInputManager
-        if IsHeld
-            mouse2press!
-        else
-            mouse2release!
+        unless VirtualInputManager
+            if IsHeld
+                mouse2press!
+            else
+                mouse2release!
 
 Arena = Target = nil
 
 Punch = (IsHeld) ->
-    VirtualInputManager::SendMouseButtonEvent 500, 500, 0, IsHeld, game, 1 if VirtualInputManager
+    if CombatController and Library.Toggles.Misc_UseCombatController.Value
+        task.spawn CombatController.Action "Punch", IsHeld and Enum.UserInputState.Begin or Enum.UserInputState.End
+    else
+        VirtualInputManager::SendMouseButtonEvent 500, 500, 0, IsHeld, game, 1 if VirtualInputManager
 
-    unless VirtualInputManager
-        if IsHeld
-            mouse1press!
-        else
-            mouse1release!
+        unless VirtualInputManager
+            if IsHeld
+                mouse1press!
+            else
+                mouse1release!
 
 PressKeyDown = (IsHeld, Key) ->
     VirtualInputManager::SendKeyEvent IsHeld, Key, false, game
@@ -243,13 +248,23 @@ Attack = (ReleaseDelay) ->
             task.wait ReleaseDelay
             Punch false
         when "LeftKick"
-            PressKeyDown true, Library.Options.AutoClash_LeftKick.Value
-            task.wait ReleaseDelay
-            PressKeyDown false, Library.Options.AutoClash_LeftKick.Value
+            if CombatController and Library.Toggles.Misc_UseCombatController.Value
+                task.spawn CombatController.Action "LKick", Enum.UserInputState.Begin
+                task.wait ReleaseDelay
+                task.spawn CombatController.Action "LKick", Enum.UserInputState.End
+            else
+                PressKeyDown true, Library.Options.AutoClash_LeftKick.Value
+                task.wait ReleaseDelay
+                PressKeyDown false, Library.Options.AutoClash_LeftKick.Value
         when "RightKick"
-            PressKeyDown true, Library.Options.AutoClash_RightKick.Value
-            task.wait ReleaseDelay
-            PressKeyDown false, Library.Options.AutoClash_RightKick.Value
+            if CombatController and Library.Toggles.Misc_UseCombatController.Value
+                task.spawn CombatController.Action "RKick", Enum.UserInputState.Begin
+                task.wait ReleaseDelay
+                task.spawn CombatController.Action "RKick", Enum.UserInputState.End
+            else
+                PressKeyDown true, Library.Options.AutoClash_RightKick.Value
+                task.wait ReleaseDelay
+                PressKeyDown false, Library.Options.AutoClash_RightKick.Value
 
 task.spawn () ->
     while task.wait 0.5
