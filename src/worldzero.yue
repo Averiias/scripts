@@ -1,0 +1,215 @@
+--985731078
+
+macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
+macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
+macro LUA_IMPORTJSSON=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = game:GetService('HttpService'):JSONDecode(game:HttpGet(#{URL}))",type:"text"}
+
+$LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
+$LUA_IMPORTURL "ThemeManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+$LUA_IMPORTURL "SaveManager", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
+
+Library.ForceCheckbox = true
+
+with ThemeManager
+    ::SetLibrary Library
+    ::SetFolder("pudding")
+with SaveManager
+    SaveManager::SetLibrary Library
+    SaveManager::IgnoreThemeSettings!
+    SaveManager::SetIgnoreIndexes {"MenuKeybind"}
+    SaveManager::SetFolder("pudding/worldzero")
+
+with Window = Library::CreateWindow {Title: "World // Zero", Footer: "World // Zero By Ave | discord.gg/RVED6GzEyG", ShowCustomCursor: false}
+    with Needs = ::AddTab "Combat"
+        with AutoBlocker = ::AddLeftGroupbox "Kill Aura"
+            ::AddToggle "KillAura_Enabled", {Text: "Auto Attack"}
+            ::AddSlider "KillAura_PingAdjustment", {
+                Text: "Ping Adjustment",
+                Default: 25
+                Min: 0
+                Max: 100
+                Rounding: 0
+                Suffix: "%"
+            }
+            ::AddToggle "KillAura_LookAtTargets", {Text: "Look At Targets"}
+            ::AddToggle "KillAura_ExtraDamage", {Text: "Extra Damage", Tooltip: "Only supports some classes!\n\nMage Of Light\nMage Of Shadows"}
+            ::AddToggle "KillAura_AttackObjectives", {Text: "Attack Objectives"}
+            ::AddToggle "KillAura_ShowAttackEffects", {Text: "Show Attack Effects"}
+    with Settings = ::AddTab "Settings"
+        with UI = ::AddRightGroupbox "UI"
+            with BindLabel = ::AddLabel "Menu Keybind"
+                ::AddKeyPicker("MenuKeybind", { Default: "RightShift", NoUI: true, Text: "Menu Keybind" })
+                Library.ToggleKeybind = Library.Options.MenuKeybind
+        SaveManager::BuildConfigSection Settings
+        ThemeManager::ApplyToTab Settings
+
+
+$LUA_IMPORTJSSON PERK_DATA, "https://gist.githubusercontent.com/Averiias/655b8d9c20a8c70cb0dbc39c8e4c6022/raw/571011b24b6f825a186c596f46b8220e01fd2829/perkdata.json"
+$LUA_IMPORTJSSON EGG_DATA, "https://gist.githubusercontent.com/Averiias/56c70999de64015b27856f087e7fa401/raw/122e28c8a6e06781d984bfa1f61230ad70539052/eggdata.json"
+$LUA_IMPORTJSSON ATTACK_PATTERNS, "https://gist.githubusercontent.com/Averiias/a5d6f6faf04b2bddc574b47b226accc9/raw/bb67669301bd0b81c0fc927bde93bbdecb4c8538/attackpattern.json"
+
+global AWS = 2
+
+LocalPlayer = game.Players.LocalPlayer
+
+class PlayerHandler
+    @AttackKey: 0
+    @LastAttacked: time!
+    @ProfileModule = require game.ReplicatedStorage.Shared.Profile
+
+    @GetPlayerClass: () ->
+        Profile = @ProfileModule::GetProfile!
+
+        return Profile.Class.Value if Profile
+    
+    @GetAttackInfo: () ->
+        Class = @::GetPlayerClass!
+        return ATTACK_PATTERNS[Class]
+
+    @GetLocalCollider: () ->
+        Character = LocalPlayer.Character
+        Collider = Character.Collider if Character
+        return Collider
+
+    @AdjustForPing: () ->
+        set_thread_identity 8
+        PingAdjustment = ((game::GetService "Stats").Network.ServerStatsItem["Data Ping"]::GetValue!) / 1000
+        OnePercent = PingAdjustment / 100
+        task.wait OnePercent * Library.Options.KillAura_PingAdjustment.Value
+
+    @GetAttackKey: () ->
+        AttackInfo = @::GetAttackInfo!
+        if (@LastAttacked - time!) > AttackInfo.Reset
+            @AttackKey = 1
+            @LastAttacked = time!
+
+        @AttackKey += 1
+        @AttackKey = 1 if @AttackKey > AttackInfo.Max
+        return "#{AttackInfo.KeyStart}#{@AttackKey}"
+
+class AttackHandler
+    @CanAttack: true
+
+    @AnimationModule = require game.ReplicatedStorage.Client.Animations
+    @EffectsModule = require game.ReplicatedStorage.Shared.Effects
+    @StatusModule = require game.ReplicatedStorage.Shared.Status
+    @CombatModule = require game.ReplicatedStorage.Shared.Combat
+    @ActionsModule = require game.ReplicatedStorage.Client.Actions
+    @PetSkillsModule = require game.ReplicatedStorage.Shared.PetSkills
+
+    @Skillsets = game.ReplicatedStorage.Shared.Combat.Skillsets
+
+    @TimingsHelper: {Swordmaster: [0.02, 1.5], Defender: [0.02, 1.2], DualWielder: [0.02, 1], Guardian: [0.02, 1.21], Berserker: [0.02, 1], Dragoon: [0.02, 1.5], Demon: [0.02, 1], Assassin: [0, 1.15], Paladin: [0.01, 1.2], Mage: [0.1, 1], IcefireMage: [0.1, 1], Summoner: [0.1, 1], MageOfLight: [0.1, 1], Archer: [0.02, 1], Hunter: [0.02, 1], MageOfShadows: [0.1, 1], Necromancer: [0.02, 1], Stormcaller: [0.1, 1]}
+
+    @HandleEffectEmitter: (Class, HitPosition, Callback) =>
+
+    @HandleAttack: (Class, PlayerCollider, MobCollider, Animation, Mob, IsCloseRange) =>
+        Key = PlayerHandler::GetAttackKey!
+        Timings = @TimingsHelper[Class]
+
+        IgnoreDelay = false
+
+        LookVector = (CFrame.lookAt PlayerCollider.Position, MobCollider.Position).LookVector
+
+        @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector if IsCloseRange
+        warn Class, typeof Class
+        switch Class
+            when "Mage"
+                @Skillsets.Mage.Primary::FireServer Mob
+                @CombatModule::AttackWithSkill AWS, Key, MobCollider.Position
+            when "IcefireMage"
+                @Skillsets.IcefireMage.Primary::FireServer Mob
+                @CombatModule::AttackWithSkill AWS, Key, MobCollider.Position
+            when "Summoner"
+                @Skillsets.Summoner.Primary::FireServer Mob
+                @CombatModule::AttackWithSkill AWS, Key, MobCollider.Position
+            when "MageOfLight"
+                Timing = (Animation.Length - Timings[1]) / Timings[2] if Animation
+                IgnoreDelay = true if Timing
+                Timing = 0 unless Timing
+                @Skillsets.MageOfLight.ReplicateOrbs::FireServer Mob
+                @CombatModule::AttackWithSkill AWS, "MageOfLight", MobCollider.Position
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfLightCharged", MobCollider.Position if Library.Toggles.KillAura_ExtraDamage.Value
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfLightBlast", MobCollider.Position
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfLightBlastCharged", MobCollider.Position if Library.Toggles.KillAura_ExtraDamage.Value
+            when "MageOfShadows"
+                Timing = (Animation.Length - Timings[1]) / Timings[2] if Animation
+                IgnoreDelay = true if Timing
+                Timing = 0 unless Timing
+                @Skillsets.MageOfShadows.ReplicateOrbs::FireServer Mob
+                @CombatModule::AttackWithSkill AWS, "MageOfShadows", MobCollider.Position
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfShadowsCharged", MobCollider.Position if Library.Toggles.KillAura_ExtraDamage.Value
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfShadowsBlast", MobCollider.Position
+                task.wait Timing / 4
+                @CombatModule::AttackWithSkill AWS, "MageOfShadowsBlastCharged", MobCollider.Position if Library.Toggles.KillAura_ExtraDamage.Value
+            when "Archer"
+                @CombatModule::AttackWithSkill AWS, "Archer", MobCollider.Position
+            when "Hunter"
+                @Skillsets.Hunter.DoArrow::FireServer "HunterArrow", Mob, nil, nil
+                @CombatModule::AttackWithSkill AWS, "Hunter", MobCollider.Position
+            when "Necromancer"
+                @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector
+            when "Stormcaller"
+                @CombatModule::AttackWithSkill AWS, Key, MobCollider.Position
+
+        task.wait (Animation.Length - Timings[1]) / Timings[2] if Animation and not IgnoreDelay
+        PlayerHandler::AdjustForPing!
+        @CanAttack = true
+
+    @Attack: (Mob, HitPosition, IsCloseRange) =>
+        return unless @CanAttack
+
+        PlayerCollider = PlayerHandler::GetLocalCollider!
+        return unless PlayerCollider
+        MobCollider = Mob::FindFirstChild "Collider"
+        return unless MobCollider
+
+        Health = Mob::FindFirstChild "Health", true
+        return unless Health
+        return unless Health.Value > 0
+
+        PlayerClass = PlayerHandler::GetPlayerClass!
+
+        Animation = @AnimationModule::GetAnims![PlayerClass]["Attack#{PlayerHandler.AttackKey}"]
+
+        @CanAttack = false
+        @::HandleAttack PlayerClass, PlayerCollider, MobCollider, Animation, Mob, IsCloseRange
+
+        @EffectsModule\EmitAt "HitEffect", 8, HitPosition if Library.Toggles.KillAura_ShowAttackEffects.Value
+
+    @EmitKillAura = () =>
+        return unless Library.Toggles.KillAura_Enabled.Value
+
+        AttackInfo = PlayerHandler::GetAttackInfo!
+        PlayerCollider = PlayerHandler::GetLocalCollider!
+        return unless PlayerCollider
+        Target = @ActionsModule::GetNearestTarget 150
+        return unless Target
+
+        MobCollider = Target::FindFirstChild "Collider"
+        return unless MobCollider
+
+        @ActionsModule::AimAtNearestMob 0.1 if Library.Toggles.KillAura_LookAtTargets.Value
+
+        with AttackInfo
+            if .a1
+                LookVector = (CFrame.lookAt PlayerCollider.Position, MobCollider.Position).LookVector
+                EntitiesInCone, Positions = @CombatModule::GetInCone PlayerCollider.Position, .a1, LookVector, .a2, .a3, nil, nil, PlayerCollider.Parent
+                @::Attack EntitiesInCone[1], (CFrame.new Positions[1]), true if #EntitiesInCone > 0
+            if .MaxDistance
+                @::Attack Target, MobCollider.Position, false
+
+    @EmitSkills = () =>
+        return
+
+CallHandler = (Handler, Func) ->
+    task.spawn Handler[Func], Handler
+
+while task.wait!
+    CallHandler AttackHandler, "EmitKillAura"
+    CallHandler AttackHandler, "EmitSkills"
