@@ -112,7 +112,7 @@ class AttackHandler
         LookVector = (CFrame.lookAt PlayerCollider.Position, MobCollider.Position).LookVector
 
         @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector if IsCloseRange
-        warn Class, typeof Class
+
         switch Class
             when "Mage"
                 @Skillsets.Mage.Primary::FireServer Mob
