@@ -21,7 +21,7 @@ with SaveManager
 
 with Window = Library::CreateWindow {Title: "World // Zero", Footer: "World // Zero By Ave | discord.gg/RVED6GzEyG", ShowCustomCursor: false}
     with Needs = ::AddTab "Combat"
-        with AutoBlocker = ::AddLeftGroupbox "Kill Aura"
+        with KillAura = ::AddLeftGroupbox "Kill Aura"
             ::AddToggle "KillAura_Enabled", {Text: "Auto Attack"}
             ::AddSlider "KillAura_PingAdjustment", {
                 Text: "Ping Adjustment",
@@ -35,6 +35,9 @@ with Window = Library::CreateWindow {Title: "World // Zero", Footer: "World // Z
             ::AddToggle "KillAura_ExtraDamage", {Text: "Extra Damage", Tooltip: "Only supports some classes!\n\nMage Of Light\nMage Of Shadows"}
             ::AddToggle "KillAura_AttackObjectives", {Text: "Attack Objectives"}
             ::AddToggle "KillAura_ShowAttackEffects", {Text: "Show Attack Effects"}
+    with Inventory = ::AddTab "Inventory"
+        with Loot = ::AddLeftGroupbox "Loot"
+            ::AddToggle "Loot_AutoPickup", {Text: "Auto Pickup"}
     with Settings = ::AddTab "Settings"
         with UI = ::AddRightGroupbox "UI"
             with BindLabel = ::AddLabel "Menu Keybind"
@@ -207,9 +210,26 @@ class AttackHandler
     @EmitSkills = () =>
         return
 
+class InventoryHandler
+    @EmitPickup = () =>
+        return unless Library.Toggles.Loot_AutoPickup.Value
+
+        ColliderPos = PlayerHandler::GetLocalCollider!?.Position
+        return unless ColliderPos
+
+        for Coin in *workspace.Coins::GetChildren!
+            if Coin::IsA "Model"
+                Coin::MoveTo ColliderPos
+                for Part in *Coin::GetChildren!
+                    Part.CanCollide = false if Part::IsA "Part"
+            elseif Coin::IsA "Part"
+                Coin.CanCollide = false
+                Coin.Position = ColliderPos
+
 CallHandler = (Handler, Func) ->
     task.spawn Handler[Func], Handler
 
 while task.wait!
     CallHandler AttackHandler, "EmitKillAura"
     CallHandler AttackHandler, "EmitSkills"
+    CallHandler InventoryHandler, "EmitPickup"
