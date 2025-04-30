@@ -1,6 +1,5 @@
 --2343912333
 
-macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 
 $LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
@@ -162,7 +161,7 @@ GetCurrentArena = () ->
         P1 = Info?::FindFirstChild "P1", true
         P2 = Info?::FindFirstChild "P2", true
 
-        $LUA_CONTINUE unless (Info?::FindFirstChild "Active")?.Value
+        continue unless (Info?::FindFirstChild "Active")?.Value
 
         if P1 and P2
             T1 = P1.Title.Text
@@ -274,13 +273,13 @@ while true
     task.wait!
     if (not IsBusy) and Library.Toggles.AutoBlock_Enabled.Value
         if Library.Toggles.AutoBlock_IgnoreNotInGame.Value
-            $LUA_CONTINUE unless Target
+            continue unless Target
         
         if Library.Toggles.Misc_DisableWhenAFK.Value
             Character = LocalPlayer.Character
             Info = Character?::FindFirstChild "Info"
             AFK = Info?::FindFirstChild "AFK"
-            $LUA_CONTINUE if AFK?.Value
+            continue if AFK?.Value
 
         if Library.Toggles.Misc_DisableWhenRoundEnds.Value
             if Library.Toggles.AutoBlock_IgnoreNotInGame.Value
@@ -291,14 +290,14 @@ while true
                     A = Title::find LocalPlayer.Name
                     B = Title::find Target.Name
 
-                    $LUA_CONTINUE unless A and B
+                    continue unless A and B
 
 
         for Player in *game.Players::GetPlayers!
-            $LUA_CONTINUE if Player == LocalPlayer
+            continue if Player == LocalPlayer
 
 
-            $LUA_CONTINUE if (Library.Toggles.AutoBlock_IgnoreNotInGame.Value and (Target != Player.Name))
+            continue if (Library.Toggles.AutoBlock_IgnoreNotInGame.Value and (Target != Player.Name))
 
             LPCharacter = LocalPlayer.Character
             Character = Player.Character
@@ -311,21 +310,21 @@ while true
                 if LPHumanoidRootPart and HumanoidRootPart and Humanoid
                     if Library.Toggles.AutoBlock_IgnorePlayersBehind.Value
                         unless IsPlayerBehind LPHumanoidRootPart, HumanoidRootPart
-                            $LUA_CONTINUE
+                            continue
                     
                     Distance = (LPHumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-                    $LUA_CONTINUE unless Distance < Library.Options.AutoBlock_Distance.Value
+                    continue unless Distance < Library.Options.AutoBlock_Distance.Value
                     Tracks = Humanoid::GetPlayingAnimationTracks!
 
                     for _, AnimationTrack in Tracks
                         Animation = AnimationTrack.Animation.AnimationId
-                        $LUA_CONTINUE if Animation::find "http://"
+                        continue if Animation::find "http://"
                         Standard = Animation::gsub "rbxassetid://", ""
                         
-                        $LUA_CONTINUE if IsPassive Standard
-                        $LUA_CONTINUE if IsEmote Standard
-                        $LUA_CONTINUE if AnimationTrack.TimePosition < 0.05
-                        $LUA_CONTINUE if AnimationTrack.TimePosition > 0.1
+                        continue if IsPassive Standard
+                        continue if IsEmote Standard
+                        continue if AnimationTrack.TimePosition < 0.05
+                        continue if AnimationTrack.TimePosition > 0.1
 
                         IsBusy = true
                         StartDelay = Library.Options.AutoBlock_StartDelay.Value

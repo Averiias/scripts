@@ -1,6 +1,5 @@
 --7095682825
 
-macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 
 $LUA_IMPORTURL "Library", "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/Library.lua"
@@ -72,13 +71,13 @@ GetClosestBird = () ->
             Health = Bird::GetAttribute "Health"
             Visible = Bird::GetAttribute "CurrentlyVisible"
 
-            $LUA_CONTINUE unless Visible
-            $LUA_CONTINUE if not Health or Health == 0
+            continue unless Visible
+            continue if not Health or Health == 0
 
             BirdPos, OnScreen = WorldToScreenPoint Bird.PrimaryPart.Position
             BirdScreenPos = Vector2.new BirdPos.X, BirdPos.Y
 
-            $LUA_CONTINUE unless OnScreen
+            continue unless OnScreen
 
             Distance = (MouseLocation - BirdScreenPos).Magnitude
 
@@ -120,19 +119,19 @@ while true
 
     Weapon = LocalPlayer.Character?::FindFirstChildWhichIsA "Tool"
 
-    $LUA_CONTINUE unless GunList[Weapon?.Name]
+    continue unless GunList[Weapon?.Name]
 
     HandlePart = Weapon::FindFirstChild "HandlePart", true
     
-    $LUA_CONTINUE unless HandlePart
+    continue unless HandlePart
 
     for Region in *workspace.Regions::GetChildren!
         for Bird in *Region.ClientBirds::GetChildren!
             Health = Bird::GetAttribute "Health"
             Visible = Bird::GetAttribute "CurrentlyVisible"
 
-            $LUA_CONTINUE unless Visible
-            $LUA_CONTINUE if not Health or Health == 0
+            continue unless Visible
+            continue if not Health or Health == 0
 
             if Library.Toggles.AutoFarm_KillAll.Value
                 HandlePos = HandlePart.Position

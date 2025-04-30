@@ -1,6 +1,5 @@
 --7450124099
 
-macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 
 class Interface
@@ -114,7 +113,7 @@ class KaraokeMinigame
                 for UITrack in *@GameUI.Tracks::GetChildren!
                     Notes = @Tracks[UITrack]
 
-                    $LUA_CONTINUE unless Notes
+                    continue unless Notes
 
                     TrackEnd = UITrack.End
                     TrackPosition = TrackEnd.AbsolutePosition
@@ -155,11 +154,11 @@ class HibachiMinigame
         while true
             task.wait!
 
-            $LUA_CONTINUE unless Interface.Toggles.Hibachi_AutoPlay.Value
+            continue unless Interface.Toggles.Hibachi_AutoPlay.Value
 
             for ToChop in *@ToChop
                 LastCF = ToChop.LastCFrame
-                $LUA_CONTINUE unless LastCF
+                continue unless LastCF
 
                 Model = ToChop.Model
                 Model.PrimaryPart::Destroy!
@@ -210,7 +209,7 @@ class YakitoriStandMinigame
             task.wait!
             Yakitoris = debug.getupvalue @Game.Run, 13
 
-            $LUA_CONTINUE unless Yakitoris
+            continue unless Yakitoris
 
             for Yakitori in *Yakitoris::GetChildren!
                 State = Yakitori::GetAttribute "State"
