@@ -1,5 +1,10 @@
 --985731078
 
+LocalPlayer = game.Players.LocalPlayer
+
+LocalPlayer::Kick "Missing getscripthash function" unless getscripthash
+LocalPlayer::Kick "Outdated script" unless (getscripthash game.ReplicatedStorage.Shared.Combat) == "518821FA689A546DBB5CCD04298D8234F88CB65219731A69D5F3B72F72316024886D033628FC6428F6CB15BAD6F9B9FC"
+
 macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 macro LUA_IMPORTJSSON=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = game:GetService('HttpService'):JSONDecode(game:HttpGet(#{URL}))",type:"text"}
@@ -32,9 +37,30 @@ with Window = Library::CreateWindow {Title: "World // Zero", Footer: "World // Z
                 Suffix: "%"
             }
             ::AddToggle "KillAura_LookAtTargets", {Text: "Look At Targets"}
-            ::AddToggle "KillAura_ExtraDamage", {Text: "Extra Damage", Tooltip: "Only supports some classes!\n\nMage Of Light\nMage Of Shadows"}
+            ::AddToggle "KillAura_ExtraDamage", {Text: "Extra Damage", Tooltip: "Only supports some classes!\n\nMage Of Light\nMage Of Shadows\nDemon\nPaladin"}
             ::AddToggle "KillAura_AttackObjectives", {Text: "Attack Objectives"}
             ::AddToggle "KillAura_ShowAttackEffects", {Text: "Show Attack Effects"}
+    with Character = ::AddTab "Character"
+        with Damage = ::AddLeftGroupbox "Damage"
+            ::AddToggle "Damage_NullifyLocalDamage", {Text: "Nullify Local Damage"}
+        with WalkSpeed = ::AddRightGroupbox "WalkSpeed"
+            ::AddToggle "WalkSpeed_Sprint", {Text: "Modify Sprint Speed"}
+            ::AddSlider "WalkSpeed_Sprint", {
+                Text: "Sprint Speed",
+                Default: 4
+                Min: 0
+                Max: 6
+                Rounding: 2
+            }
+            ::AddToggle "WalkSpeed_Mount", {Text: "Modify Mount Speed"}
+            ::AddSlider "WalkSpeed_Mount", {
+                Text: "Mount Speed",
+                Default: 2
+                Min: 0
+                Max: 4
+                Rounding: 2
+            }
+
     with Inventory = ::AddTab "Inventory"
         with Loot = ::AddLeftGroupbox "Loot"
             ::AddToggle "Loot_AutoPickup", {Text: "Auto Pickup"}
@@ -104,7 +130,7 @@ class AttackHandler
 
     @TimingsHelper: {Swordmaster: [0.02, 1.5], Defender: [0.02, 1.2], DualWielder: [0.02, 1], Guardian: [0.02, 1.21], Berserker: [0.02, 1], Dragoon: [0.02, 1.5], Demon: [0.02, 1], Assassin: [0, 1.15], Paladin: [0.01, 1.2], Mage: [0.1, 1], IcefireMage: [0.1, 1], Summoner: [0.1, 1], MageOfLight: [0.1, 1], Archer: [0.02, 1], Hunter: [0.02, 1], MageOfShadows: [0.1, 1], Necromancer: [0.02, 1], Stormcaller: [0.1, 1]}
 
-    @HandleEffectEmitter: (Class, HitPosition, Callback) =>
+    @HandleEffectEmitter: (Class, HitPosition, Callback) => return
 
     @HandleAttack: (Class, PlayerCollider, MobCollider, Animation, Mob, IsCloseRange) =>
         Key = PlayerHandler::GetAttackKey!
@@ -114,7 +140,17 @@ class AttackHandler
 
         LookVector = (CFrame.lookAt PlayerCollider.Position, MobCollider.Position).LookVector
 
-        @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector if IsCloseRange
+        if IsCloseRange
+            switch Class
+                when "Demon"
+                    @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector
+                    @CombatModule::AttackWithSkill AWS, "#{Key}Ult", PlayerCollider.Position, LookVector if Library.Toggles.KillAura_ExtraDamage.Value
+                when "Paladin"
+                    @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector
+                    @CombatModule::AttackWithSkill AWS, "Light#{Key}", PlayerCollider.Position, LookVector
+                else
+                    @CombatModule::AttackWithSkill AWS, Key, PlayerCollider.Position, LookVector
+
 
         switch Class
             when "Mage"
@@ -183,7 +219,7 @@ class AttackHandler
         @CanAttack = false
         @::HandleAttack PlayerClass, PlayerCollider, MobCollider, Animation, Mob, IsCloseRange
 
-        @EffectsModule\EmitAt "HitEffect", 8, HitPosition if Library.Toggles.KillAura_ShowAttackEffects.Value
+        @EffectsModule\EmitAt "HitEffect", 8, HitPosition if Library.Toggles.KillAura_ShowAttackEffects.Value and IsCloseRange
 
     @EmitKillAura = () =>
         return unless Library.Toggles.KillAura_Enabled.Value
@@ -210,6 +246,34 @@ class AttackHandler
     @EmitSkills = () =>
         return
 
+class CharacterHandler
+    @WalkspeedManager = require game.ReplicatedStorage.Shared.WalkspeedManager
+    @MobsFolder = game.ReplicatedStorage.Shared.Mobs
+
+    @Setup = () =>
+        IsDescendantOf = game.IsDescendantOf
+
+        __namecall = nil
+        __namecall = hookmetamethod game, "__namecall", (...) ->
+
+            if getnamecallmethod() == "FireServer"
+                if Library.Toggles.Damage_NullifyLocalDamage.Value
+                    if IsDescendantOf select(1, ...), @MobsFolder
+                        return
+
+            __namecall ...
+
+        with @WalkspeedManager
+            AddWalkspeedMultiplier = .AddWalkspeedMultiplier
+            .AddWalkspeedMultiplier = (self, Character, Type, Amount) ->
+                switch Type
+                    when "Sprinting"
+                        Amount = Library.Options.WalkSpeed_Sprint.Value if Library.Toggles.WalkSpeed_Sprint.Value
+                    when "Mount"
+                        Amount = Library.Options.WalkSpeed_Mount.Value if Library.Toggles.WalkSpeed_Mount.Value
+
+                AddWalkspeedMultiplier self, Character, Type, Amount
+
 class InventoryHandler
     @EmitPickup = () =>
         return unless Library.Toggles.Loot_AutoPickup.Value
@@ -228,6 +292,8 @@ class InventoryHandler
 
 CallHandler = (Handler, Func) ->
     task.spawn Handler[Func], Handler
+
+CharacterHandler::Setup!
 
 while task.wait!
     CallHandler AttackHandler, "EmitKillAura"
