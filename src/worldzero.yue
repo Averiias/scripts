@@ -1,10 +1,5 @@
 --985731078
 
-LocalPlayer = game.Players.LocalPlayer
-
-LocalPlayer::Kick "Missing getscripthash function" unless getscripthash
-LocalPlayer::Kick "Outdated script" unless (getscripthash game.ReplicatedStorage.Shared.Combat) == "518821FA689A546DBB5CCD04298D8234F88CB65219731A69D5F3B72F72316024886D033628FC6428F6CB15BAD6F9B9FC"
-
 macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 macro LUA_IMPORTJSSON=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = game:GetService('HttpService'):JSONDecode(game:HttpGet(#{URL}))",type:"text"}
