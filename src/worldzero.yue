@@ -1,6 +1,5 @@
 --985731078
 
-macro LUA_CONTINUE=()->{code:"continue",type:"text",expression:true}
 macro LUA_IMPORTURL=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = loadstring(game:HttpGet(#{URL}))()",type:"text"}
 macro LUA_IMPORTJSSON=(NAME,URL)->{code:"local #{NAME::gsub '"', ''} = game:GetService('HttpService'):JSONDecode(game:HttpGet(#{URL}))",type:"text"}
 
